@@ -690,12 +690,12 @@ the isolated baseline checks below.
 
    ![Hub recording detail showing the person detected workflow marker](docs/images/hub-workflow-result-marker.png)
 
-   *The completed workflow adds a `person detected` marker over the configured
-   recording interval.*
+   *The completed workflow adds a `person detected` marker over the seconds in
+   which people are visible.*
 
    ![Hub recording description containing the YOLO detection summary](docs/images/hub-workflow-result-description.png)
 
-   *The media patch stores the deterministic YOLO summary in the recording
+   *The media patch stores the people count summary in the recording
    description.*
 
 4. Repeat queue preparation, timestamp verification, and one-shot callback
