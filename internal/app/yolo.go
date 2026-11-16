@@ -23,6 +23,11 @@ type personDetection struct {
 	Detected       bool
 	FramesAnalyzed int
 	MaxConfidence  float32
+	// seconds from the start of the recording, sampled frames only
+	PeakCount int
+	PeakAt    float64
+	FirstSeen float64
+	LastSeen  float64
 }
 
 type personDetector interface {
@@ -133,15 +138,24 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 		if frame.Empty() || frameIndex%sampleEvery != 0 {
 			continue
 		}
-		confidence, err := detectPersonInFrame(session, frame)
+		count, confidence, err := detectPersonsInFrame(session, frame, detector.confidence)
 		if err != nil {
 			return personDetection{}, err
 		}
 		detection.FramesAnalyzed++
-		if confidence >= detector.confidence {
+		detection.MaxConfidence = max(detection.MaxConfidence, confidence)
+		if count == 0 {
+			continue
+		}
+		second := float64(frameIndex) / fps
+		if !detection.Detected {
 			detection.Detected = true
-			detection.MaxConfidence = confidence
-			return detection, nil
+			detection.FirstSeen = second
+		}
+		detection.LastSeen = second
+		if count > detection.PeakCount {
+			detection.PeakCount = count
+			detection.PeakAt = second
 		}
 	}
 	if detection.FramesAnalyzed == 0 {
@@ -150,26 +164,30 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 	return detection, nil
 }
 
-func detectPersonInFrame(session *ort.DynamicAdvancedSession, frame gocv.Mat) (float32, error) {
+func detectPersonsInFrame(session *ort.DynamicAdvancedSession, frame gocv.Mat, threshold float32) (int, float32, error) {
 	inputData, err := yoloInput(frame)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	input, err := ort.NewTensor(ort.NewShape(1, 3, yoloInputSize, yoloInputSize), inputData)
 	if err != nil {
-		return 0, errors.New("YOLO could not create an input tensor")
+		return 0, 0, errors.New("YOLO could not create an input tensor")
 	}
 	defer input.Destroy()
 	outputs := []ort.Value{nil}
 	if err := session.Run([]ort.Value{input}, outputs); err != nil {
-		return 0, errors.New("YOLO inference failed")
+		return 0, 0, errors.New("YOLO inference failed")
 	}
 	defer outputs[0].Destroy()
 	output, ok := outputs[0].(*ort.Tensor[float32])
 	if !ok {
-		return 0, errors.New("YOLO returned an unsupported output tensor")
+		return 0, 0, errors.New("YOLO returned an unsupported output tensor")
 	}
-	return personConfidence(output.GetData(), output.GetShape())
+	shape := output.GetShape()
+	if len(shape) != 3 || shape[0] != 1 {
+		return 0, 0, fmt.Errorf("YOLO returned unsupported output shape %v", shape)
+	}
+	return countPersons(output.GetData(), int(shape[1]), int(shape[2]), threshold)
 }
 
 func yoloInput(frame gocv.Mat) ([]float32, error) {
@@ -192,31 +210,4 @@ func yoloInput(frame gocv.Mat) ([]float32, error) {
 		input[2*pixelCount+pixel] = float32(pixels[source]) / 255
 	}
 	return input, nil
-}
-
-func personConfidence(output []float32, shape ort.Shape) (float32, error) {
-	if len(shape) != 3 || shape[0] != 1 {
-		return 0, fmt.Errorf("YOLO returned unsupported output shape %v", shape)
-	}
-	rows, columns := int(shape[1]), int(shape[2])
-	if len(output) != rows*columns {
-		return 0, errors.New("YOLO returned inconsistent output data")
-	}
-	var confidence float32
-	switch {
-	case rows == 84:
-		for detection := 0; detection < columns; detection++ {
-			confidence = max(confidence, output[4*columns+detection])
-		}
-	case columns == 84:
-		for detection := 0; detection < rows; detection++ {
-			confidence = max(confidence, output[detection*columns+4])
-		}
-	default:
-		return 0, fmt.Errorf("YOLO returned unsupported output shape %v", shape)
-	}
-	if confidence < 0 || confidence > 1 || math.IsNaN(float64(confidence)) || math.IsInf(float64(confidence), 0) {
-		return 0, errors.New("YOLO returned an invalid person confidence")
-	}
-	return confidence, nil
 }

@@ -10,26 +10,6 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func TestPersonConfidence(t *testing.T) {
-	channelsFirst := make([]float32, 84*3)
-	channelsFirst[4*3+1] = 0.87
-	confidence, err := personConfidence(channelsFirst, ort.NewShape(1, 84, 3))
-	if err != nil || confidence != 0.87 {
-		t.Fatalf("channels-first confidence = %v, error = %v", confidence, err)
-	}
-
-	detectionsFirst := make([]float32, 3*84)
-	detectionsFirst[2*84+4] = 0.76
-	confidence, err = personConfidence(detectionsFirst, ort.NewShape(1, 3, 84))
-	if err != nil || confidence != 0.76 {
-		t.Fatalf("detections-first confidence = %v, error = %v", confidence, err)
-	}
-
-	if _, err := personConfidence(make([]float32, 4), ort.NewShape(2, 2)); err == nil {
-		t.Fatal("accepted unsupported YOLO output")
-	}
-}
-
 func TestYOLOConfiguration(t *testing.T) {
 	directory := t.TempDir()
 	modelPath := directory + "/yolo.onnx"
