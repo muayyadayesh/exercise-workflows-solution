@@ -538,7 +538,7 @@ instead of changing its value.
 | `RABBITMQ_VHOST` | Assigned virtual host, commonly `/` |
 | `STAGE_QUEUE` | Your `${username}-forward-queue`, which receives workflow invocations |
 | `MARKER_START_TIMESTAMP` | Optional Unix-seconds override; leave empty to use each recording's timestamp from the Agent filename in `media.key` |
-| `MARKER_DURATION_SECONDS` | Marker interval in seconds; `1..3600`, default `30` |
+| `MARKER_DURATION_SECONDS` | Validated (`1..3600`, default `30`) but no longer sets the marker length: the marker now spans the seconds in which people are visible |
 | `RESULT_MODE` | Set to `http` to submit the result to Hub |
 | `WORKFLOW_BEARER_TOKEN` | Raw Hub token with `workflow-runs.update`, without the `Bearer ` prefix; required in HTTP mode |
 
@@ -574,9 +574,9 @@ Use one known, playable recording from your exercise Agent:
    prefix in **`videoFile`**. `startTimestamp` is Unix **seconds**; a dated
    `videoFile` prefix is milliseconds, so it matches the first ten digits. Note `videoFile` so you can match the recording to the
    invocation's `media.key`.
-4. Set `MARKER_DURATION_SECONDS` to a whole-second interval within the clip
-   (`1..3600`); shorten the default `30` for shorter clips. Leave
-   `MARKER_START_TIMESTAMP` empty unless you need the override described below.
+4. Leave `MARKER_START_TIMESTAMP` empty unless you need the override described
+   below. `MARKER_DURATION_SECONDS` is still validated (`1..3600`) but no longer
+   sets the marker length; the marker spans the seconds in which people are visible.
 
 Use your existing Hub browser login to inspect this response; the worker's
 callback token does not need additional read permissions. Do not copy or
@@ -591,8 +591,9 @@ workflow run's **Started** time, the current time, or a synthetic example
 timestamp for a live callback.
 
 Restart the worker after changing `.env` so the new values are loaded. The
-marker begins at the recording start, not the first detection; this example
-does not yet derive entry and exit timestamps from a person track.
+marker starts at the first sampled frame with a person and ends one second
+after the last one. The description reports the peak number of people visible
+at the same time, when that peak occurs, and when people are visible.
 
 ## 7. Run the stage
 
@@ -674,7 +675,7 @@ the isolated baseline checks below.
    resolves after the worker's callback succeeds, rather than immediately after
    queue delivery.
 3. Open the recording in Hub. For a clip containing a person, verify that the
-   `person detected` marker appears at your configured interval and that the
+   `person detected` marker covers the seconds in which people are visible and that the
    recording description contains the YOLO detection summary.
 
    ![Hub recording detail showing the person detected workflow marker](docs/images/hub-workflow-result-marker.png)
@@ -752,7 +753,7 @@ Useful references:
 - [ ] Credential values are safely quoted, or supplied through a CLI-only prompt.
 - [ ] The queued test invocation is isolated; its `media.key` matches the test recording's `videoFile`.
 - [ ] `MARKER_START_TIMESTAMP` is empty for automatic per-recording timestamps, or its explicit override matches the test recording.
-- [ ] The resolved timestamp matches `data.media.startTimestamp` in Unix seconds, and the interval fits the clip.
+- [ ] The resolved timestamp matches `data.media.startTimestamp` in Unix seconds, and the marker offsets fall within the clip.
 - [ ] Hub token has only `workflow-runs.update`; `.env` contains the raw token.
 - [ ] The one-shot HTTP callback uses the test `runId` noted in Hub and returns `2xx`.
 - [ ] The run's `forwarder` stage resolves in Hub.

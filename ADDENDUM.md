@@ -27,11 +27,16 @@ For each valid invocation, the worker:
 3. stages the bytes in a private temporary file because OpenCV video capture
    requires a filename
 4. samples frames at `YOLO_SAMPLE_FPS`
-5. runs YOLO11n until the first person confidence reaches
-   `YOLO_CONFIDENCE`
+5. runs YOLO11n on every sampled frame and counts the distinct people in each
+   one: person boxes at or above `YOLO_CONFIDENCE` are kept, and boxes that
+   overlap by more than 45% are merged into one person (non-maximum
+   suppression)
 6. submits one of the two result forms below
 
-When `MARKER_START_TIMESTAMP` is empty, the marker interval starts at the
+The marker covers the part of the recording in which people are visible: it
+starts at the first sampled frame with a person and ends one second after the
+last one. Those offsets are added to the recording start, which is resolved as
+follows. When `MARKER_START_TIMESTAMP` is empty, the recording start is the
 timestamp prefix of the recording's filename in `media.key`: Unix
 milliseconds followed by `-<device>.mp4` for dated keys
 (`owner/yyyy/mm/dd/<ms>-<device>.mp4`), or Unix seconds followed by `_` for
@@ -62,18 +67,18 @@ Hub receives an ingest `payload` containing a marker and media patch:
           "siteId": "site-1",
           "organisationId": "org-1",
           "mediaKeys": ["recording.mp4"],
-          "startTimestamp": 1700000000,
-          "endTimestamp": 1700000030,
-          "duration": 30,
+          "startTimestamp": 1700000005,
+          "endTimestamp": 1700000013,
+          "duration": 8,
           "name": "person detected",
-          "description": "YOLO detected a person with 0.91 confidence after analyzing 3 sampled frames"
+          "description": "Up to 2 people at once (peak at 0:08), visible 0:05-0:13; max confidence 0.91 over 20 sampled frames"
         }
       },
       {
         "type": "media-patch",
         "data": {
           "mediaKey": "recording.mp4",
-          "description": "YOLO detected a person with 0.91 confidence after analyzing 3 sampled frames"
+          "description": "Up to 2 people at once (peak at 0:08), visible 0:05-0:13; max confidence 0.91 over 20 sampled frames"
         }
       }
     ]
@@ -313,7 +318,7 @@ The test suite covers:
 
 - invocation and callback validation
 - signed-media download behavior and limits
-- YOLO tensor preprocessing and person-score extraction
+- YOLO tensor preprocessing, people counting and overlap suppression
 - marker and media-patch payloads
 - no-person routing results
 - callback success and failure handling
