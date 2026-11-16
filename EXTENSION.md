@@ -7,6 +7,13 @@ stops at the first hit and puts a fixed 30 second marker at the start of the
 recording. Hub's own classification marks every pedestrian separately. Neither
 of them tells you when the shop is busy.
 
+![Baseline marker next to Hub's own markers](docs/images/extension-baseline-marker.png)
+
+*Baseline: `person detected` is a fixed 0:00-0:30 on a 29 second recording,
+below Hub's per-person markers.*
+
+![Baseline description](docs/images/extension-baseline-description.png)
+
 This extension counts the people in every sampled frame. With `MIN_PEOPLE=N`
 the worker only creates a marker for the part of the recording where at least
 N people are visible at the same time. The marker is named `N or more people`
@@ -15,6 +22,10 @@ is written to the recording description, so it can be searched in Hub.
 
 With the default `MIN_PEOPLE=1` the marker keeps the name `person detected`,
 but it runs from the first to the last sighting instead of a fixed 30 seconds.
+
+![Marker with MIN_PEOPLE=1](docs/images/hub-workflow-result-marker.png)
+
+![Description with MIN_PEOPLE=1](docs/images/hub-workflow-result-description.png)
 
 ## How it works
 
@@ -93,11 +104,19 @@ still means something for this camera.
 
 - Positive example: 18:52:12. The marker covers 0:07-0:13 and Hub also sees a
   busy shop in that recording.
+
+  ![Crowd marker and description](docs/images/extension-crowd-marker.png)
+
 - Counterexample: 18:53:12 and 18:53:41 end without a marker and without a
   description. Both are close to the limit: Hub counts 5 for a few seconds,
   the worker stays below 5.
+
+  ![Recording without a marker](docs/images/extension-crowd-no-marker.png)
+
 - False alarm: 18:52:42. One sampled frame reaches 5 while Hub never sees
   more than 3.
+
+  ![Marker from a single frame](docs/images/extension-crowd-false-alarm.png)
 
 ## Limitations
 
