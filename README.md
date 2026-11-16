@@ -593,7 +593,9 @@ timestamp for a live callback.
 Restart the worker after changing `.env` so the new values are loaded. The
 marker starts at the first sampled frame with a person and ends one second
 after the last one. The description reports the peak number of people visible
-at the same time, when that peak occurs, and when people are visible.
+at the same time, when that peak occurs, and when people are visible. Set
+`MIN_PEOPLE` above `1` to mark only the time at least that many people are
+visible together.
 
 ## 7. Run the stage
 

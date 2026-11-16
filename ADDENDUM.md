@@ -217,6 +217,7 @@ investigating or extending the stage:
 | `ONNXRUNTIME_SHARED_LIBRARY` | ONNX Runtime shared-library path |
 | `YOLO_CONFIDENCE` | Person confidence threshold in `(0, 1]`; default `0.5` |
 | `YOLO_SAMPLE_FPS` | Frames analyzed per second in `(0, 30]`; default `1` |
+| `MIN_PEOPLE` | People that must be visible at the same time before a frame counts, `1..50`; default `1`. Above `1` the marker is named `<n> or more people` and only spans the time that many people are visible |
 | `LOG_LEVEL` | Logrus level; default `info` |
 | `LOG_OUTPUT` | `text` or `json`; default `text` |
 

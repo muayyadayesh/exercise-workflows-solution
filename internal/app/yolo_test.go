@@ -25,13 +25,14 @@ func TestYOLOConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if detector.modelPath != modelPath || detector.runtimePath != runtimePath || detector.confidence != 0.5 || detector.sampleFPS != 1 {
+	if detector.modelPath != modelPath || detector.runtimePath != runtimePath || detector.confidence != 0.5 || detector.sampleFPS != 1 || detector.minPeople != 1 {
 		t.Fatalf("unexpected detector configuration: %+v", detector)
 	}
 
 	for name, value := range map[string]string{
 		"YOLO_CONFIDENCE":            "1.1",
 		"YOLO_SAMPLE_FPS":            "0",
+		"MIN_PEOPLE":                 "0",
 		"YOLO_MODEL":                 modelPath + "-missing",
 		"ONNXRUNTIME_SHARED_LIBRARY": runtimePath + "-missing",
 	} {

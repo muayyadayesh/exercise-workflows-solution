@@ -28,6 +28,23 @@ type personDetection struct {
 	PeakAt    float64
 	FirstSeen float64
 	LastSeen  float64
+	MinPeople int
+}
+
+// A frame is a sighting only with at least minPeople in it; the peak covers all frames.
+func (detection *personDetection) add(count int, second float64, minPeople int) {
+	if count > detection.PeakCount {
+		detection.PeakCount = count
+		detection.PeakAt = second
+	}
+	if count < max(1, minPeople) {
+		return
+	}
+	if !detection.Detected {
+		detection.Detected = true
+		detection.FirstSeen = second
+	}
+	detection.LastSeen = second
 }
 
 type personDetector interface {
@@ -38,6 +55,7 @@ type yoloPersonDetector struct {
 	modelPath, runtimePath string
 	confidence             float32
 	sampleFPS              float64
+	minPeople              int
 }
 
 func newYOLOPersonDetector() (*yoloPersonDetector, error) {
@@ -48,6 +66,10 @@ func newYOLOPersonDetector() (*yoloPersonDetector, error) {
 	sampleFPS, err := strconv.ParseFloat(envOr("YOLO_SAMPLE_FPS", "1"), 64)
 	if err != nil || sampleFPS <= 0 || sampleFPS > 30 {
 		return nil, errors.New("YOLO_SAMPLE_FPS must be greater than 0 and at most 30")
+	}
+	minPeople, err := strconv.Atoi(envOr("MIN_PEOPLE", "1"))
+	if err != nil || minPeople < 1 || minPeople > 50 {
+		return nil, errors.New("MIN_PEOPLE must be an integer of 1..50")
 	}
 	modelPath, err := regularFileFromEnv("YOLO_MODEL", "/opt/yolo/yolo11n.onnx")
 	if err != nil {
@@ -62,6 +84,7 @@ func newYOLOPersonDetector() (*yoloPersonDetector, error) {
 		runtimePath: runtimePath,
 		confidence:  float32(confidence),
 		sampleFPS:   sampleFPS,
+		minPeople:   minPeople,
 	}, nil
 }
 
@@ -127,7 +150,7 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 	sampleEvery := max(1, int(math.Round(fps/detector.sampleFPS)))
 	frame := gocv.NewMat()
 	defer frame.Close()
-	detection := personDetection{}
+	detection := personDetection{MinPeople: max(1, detector.minPeople)}
 	for frameIndex := 0; ; frameIndex++ {
 		if err := ctx.Err(); err != nil {
 			return personDetection{}, fmt.Errorf("YOLO person detection canceled: %w", err)
@@ -144,19 +167,7 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 		}
 		detection.FramesAnalyzed++
 		detection.MaxConfidence = max(detection.MaxConfidence, confidence)
-		if count == 0 {
-			continue
-		}
-		second := float64(frameIndex) / fps
-		if !detection.Detected {
-			detection.Detected = true
-			detection.FirstSeen = second
-		}
-		detection.LastSeen = second
-		if count > detection.PeakCount {
-			detection.PeakCount = count
-			detection.PeakAt = second
-		}
+		detection.add(count, float64(frameIndex)/fps, detection.MinPeople)
 	}
 	if detection.FramesAnalyzed == 0 {
 		return personDetection{}, errors.New("YOLO did not decode any video frames")

@@ -56,13 +56,14 @@ type handledInvocation struct {
 }
 
 // The marker runs from the first sighting to one second after the last one.
+// With MIN_PEOPLE above 1 a sighting is a frame with at least that many people.
 func buildPersonMarker(invocation models.WorkflowInvocation, detection personDetection, recordingStart int64) models.Marker {
 	firstSecond := int64(detection.FirstSeen)
 	lastSecond := max(firstSecond, int64(detection.LastSeen)) + 1
 	marker := models.Marker{
 		OrganisationId: invocation.Tenant.OrganisationID,
 		MediaKeys:      []string{invocation.Media.Key},
-		Name:           personMarkerName,
+		Name:           markerName(detection.MinPeople),
 		Description:    personSummary(detection, firstSecond, lastSecond),
 		StartTimestamp: recordingStart + firstSecond,
 		EndTimestamp:   recordingStart + lastSecond,
@@ -74,13 +75,24 @@ func buildPersonMarker(invocation models.WorkflowInvocation, detection personDet
 	return marker
 }
 
+func markerName(minPeople int) string {
+	if minPeople > 1 {
+		return fmt.Sprintf("%d or more people", minPeople)
+	}
+	return personMarkerName
+}
+
 func personSummary(detection personDetection, firstSecond, lastSecond int64) string {
 	people := "people"
 	if detection.PeakCount == 1 {
 		people = "person"
 	}
-	return fmt.Sprintf("Up to %d %s at once (peak at %s), visible %s-%s; max confidence %.2f over %d sampled frames",
-		detection.PeakCount, people, clock(int64(detection.PeakAt)), clock(firstSecond), clock(lastSecond),
+	visible := "visible"
+	if detection.MinPeople > 1 {
+		visible = fmt.Sprintf("%d or more visible", detection.MinPeople)
+	}
+	return fmt.Sprintf("Up to %d %s at once (peak at %s), %s %s-%s; max confidence %.2f over %d sampled frames",
+		detection.PeakCount, people, clock(int64(detection.PeakAt)), visible, clock(firstSecond), clock(lastSecond),
 		detection.MaxConfidence, detection.FramesAnalyzed)
 }
 
