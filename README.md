@@ -1,5 +1,13 @@
 # Augment Vision Workflow Exercise
 
+> This repository is my solution to the Augment Vision workflow exercise
+> ([original](https://github.com/uug-ai/exercise-workflows)). On top of the
+> baseline, the worker counts people in every sampled frame and can mark only
+> the part of a recording where the scene is crowded. What changed, the
+> results and the limitations are in [EXTENSION.md](EXTENSION.md). The rest of
+> this README is the original exercise guide, updated where the behaviour
+> changed.
+
 ![Augment Vision recording with a pedestrian classification](docs/images/hub-workflow-exercise-header.jpg)
 
 ## Goal of the exercise
