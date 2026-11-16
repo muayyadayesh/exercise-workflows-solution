@@ -29,7 +29,7 @@ func (detector *stubPersonDetector) Detect(_ context.Context, media []byte) (per
 
 func detectedPerson() *stubPersonDetector {
 	return &stubPersonDetector{
-		detection: personDetection{Detected: true, FramesAnalyzed: 3, MaxConfidence: 0.91},
+		detection: personDetection{Detected: true, FramesAnalyzed: 20, MaxConfidence: 0.91, PeakCount: 2, PeakAt: 8, FirstSeen: 5, LastSeen: 12},
 	}
 }
 
@@ -87,10 +87,10 @@ func TestHandleInvocation(t *testing.T) {
 	}
 	if envelope.Blocks[0].Type != "marker" ||
 		marker.Name != personMarkerName ||
-		!strings.Contains(marker.Description, "0.91 confidence") ||
-		marker.StartTimestamp != 1700000000 ||
-		marker.EndTimestamp != 1700000030 ||
-		marker.Duration != 30 ||
+		marker.Description != "Up to 2 people at once (peak at 0:08), visible 0:05-0:13; max confidence 0.91 over 20 sampled frames" ||
+		marker.StartTimestamp != 1700000005 ||
+		marker.EndTimestamp != 1700000013 ||
+		marker.Duration != 8 ||
 		marker.OrganisationId != "org-1" ||
 		marker.SiteId != "site-1" ||
 		!reflect.DeepEqual(marker.MediaKeys, []string{"recording.mp4"}) {
@@ -175,8 +175,9 @@ func TestHandleInvocationRecordingTimestamp(t *testing.T) {
 			if err := json.Unmarshal(envelope.Blocks[0].Data, &marker); err != nil {
 				t.Fatal(err)
 			}
-			if marker.StartTimestamp != test.wantStart || marker.EndTimestamp != test.wantStart+test.duration ||
-				marker.Duration != test.duration || !reflect.DeepEqual(marker.MediaKeys, []string{test.key}) {
+			// stub: people visible from 5s to 12s
+			if marker.StartTimestamp != test.wantStart+5 || marker.EndTimestamp != test.wantStart+13 ||
+				marker.Duration != 8 || !reflect.DeepEqual(marker.MediaKeys, []string{test.key}) {
 				t.Fatalf("marker does not match its recording: %+v", marker)
 			}
 		})

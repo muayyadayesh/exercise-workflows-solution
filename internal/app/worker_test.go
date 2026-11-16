@@ -184,8 +184,8 @@ func TestDeliveryUsesEachRecordingTimestamp(t *testing.T) {
 		t.Fatalf("received %d markers, want 2", len(markers))
 	}
 	first, second := <-markers, <-markers
-	if first.StartTimestamp != 1700000000 || second.StartTimestamp != 1700000060 ||
-		first.EndTimestamp != 1700000030 || second.EndTimestamp != 1700000090 ||
+	if first.StartTimestamp != 1700000005 || second.StartTimestamp != 1700000065 ||
+		first.EndTimestamp != 1700000013 || second.EndTimestamp != 1700000073 ||
 		ack.acks != 2 || ack.nacks != 0 {
 		t.Fatalf("recording timestamps or acknowledgements incorrect: markers=%+v,%+v ack=%+v", first, second, ack)
 	}

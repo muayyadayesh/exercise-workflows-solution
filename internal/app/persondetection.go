@@ -55,20 +55,37 @@ type handledInvocation struct {
 	result   models.WorkflowResult
 }
 
-func buildPersonMarker(invocation models.WorkflowInvocation, detection personDetection, start, duration int64) models.Marker {
+// The marker runs from the first sighting to one second after the last one.
+func buildPersonMarker(invocation models.WorkflowInvocation, detection personDetection, recordingStart int64) models.Marker {
+	firstSecond := int64(detection.FirstSeen)
+	lastSecond := max(firstSecond, int64(detection.LastSeen)) + 1
 	marker := models.Marker{
 		OrganisationId: invocation.Tenant.OrganisationID,
 		MediaKeys:      []string{invocation.Media.Key},
 		Name:           personMarkerName,
-		Description:    fmt.Sprintf("YOLO detected a person with %.2f confidence after analyzing %d sampled frames", detection.MaxConfidence, detection.FramesAnalyzed),
-		StartTimestamp: start,
-		EndTimestamp:   start + duration,
-		Duration:       duration,
+		Description:    personSummary(detection, firstSecond, lastSecond),
+		StartTimestamp: recordingStart + firstSecond,
+		EndTimestamp:   recordingStart + lastSecond,
+		Duration:       lastSecond - firstSecond,
 	}
 	if len(invocation.Device.SiteIDs) > 0 {
 		marker.SiteId = invocation.Device.SiteIDs[0]
 	}
 	return marker
+}
+
+func personSummary(detection personDetection, firstSecond, lastSecond int64) string {
+	people := "people"
+	if detection.PeakCount == 1 {
+		people = "person"
+	}
+	return fmt.Sprintf("Up to %d %s at once (peak at %s), visible %s-%s; max confidence %.2f over %d sampled frames",
+		detection.PeakCount, people, clock(int64(detection.PeakAt)), clock(firstSecond), clock(lastSecond),
+		detection.MaxConfidence, detection.FramesAnalyzed)
+}
+
+func clock(seconds int64) string {
+	return fmt.Sprintf("%d:%02d", seconds/60, seconds%60)
 }
 
 func handleInvocation(ctx context.Context, body []byte, stageOperation string, start, duration int64, detector personDetector) (handledInvocation, error) {
@@ -127,6 +144,7 @@ func handleInvocation(ctx context.Context, body []byte, stageOperation string, s
 		"frames_analyzed": detection.FramesAnalyzed,
 		"max_confidence":  detection.MaxConfidence,
 		"person_detected": detection.Detected,
+		"peak_people":     detection.PeakCount,
 	}).Info("YOLO person detection completed")
 
 	result := models.WorkflowResult{
@@ -134,7 +152,7 @@ func handleInvocation(ctx context.Context, body []byte, stageOperation string, s
 		Stage:  models.WorkflowStageReference{Operation: dispatchOperation},
 	}
 	if detection.Detected {
-		marker := buildPersonMarker(invocation, detection, start, duration)
+		marker := buildPersonMarker(invocation, detection, start)
 		markerData, err := json.Marshal(marker)
 		if err != nil {
 			return handledInvocation{}, err
